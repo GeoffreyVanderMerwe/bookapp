@@ -33,6 +33,77 @@
   </head>
   <body>
     <div class="container">
+<div class="filter-sort-container" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f9f9f9;">
+      <form method="GET" action="{{ url_for('view_resources') }}">
+        <h3 style="margin-top:0;">Filter & Sort</h3>
+        <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+          <div>
+            <label for="start_date">Start Date:</label><br>
+            <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}" style="padding: 8px;">
+          </div> <!-- Closing filter-sort-container -->
+          <div>
+            <label for="end_date">End Date:</label><br>
+            <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}" style="padding: 8px;">
+          </div>
+          <div>
+            <label for="resource_type">Resource Type:</label><br>
+            <select id="resource_type" name="resource_type" style="padding: 8px;">
+              <option value="" {% if not request.args.get('resource_type') %}selected{% endif %}>All Types</option>
+              <option value="Water" {% if request.args.get('resource_type') == 'Water' %}selected{% endif %}>Water</option>
+              <option value="Energy" {% if request.args.get('resource_type') == 'Energy' %}selected{% endif %}>Energy</option>
+              <option value="Raw Material" {% if request.args.get('resource_type') == 'Raw Material' %}selected{% endif %}>Raw Material</option>
+              <option value="Other" {% if request.args.get('resource_type') == 'Other' %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="sort_by">Sort By:</label><br>
+            <select id="sort_by" name="sort_by" style="padding: 8px;">
+              <option value="date" {% if request.args.get('sort_by', 'date') == 'date' %}selected{% endif %}>Date</option>
+              <option value="resource_type" {% if request.args.get('sort_by') == 'resource_type' %}selected{% endif %}>Resource Type</option>
+              <option value="quantity" {% if request.args.get('sort_by') == 'quantity' %}selected{% endif %}>Quantity</option>
+            </select>
+          </div>
+          <div>
+            <label for="sort_order">Order:</label><br>
+            <select id="sort_order" name="sort_order" style="padding: 8px;">
+              <option value="desc" {% if request.args.get('sort_order', 'desc') == 'desc' %}selected{% endif %}>Descending</option>
+              <option value="asc" {% if request.args.get('sort_order') == 'asc' %}selected{% endif %}>Ascending</option>
+            </select>
+          </div>
+          <div style="align-self: flex-end;">
+            <input type="submit" value="Apply" class="action-button" style="background-color: #007bff; padding: 8px 15px;">
+            <a href="{{ url_for('view_resources') }}" class="action-button" style="background-color: #6c757d; padding: 8px 15px; display: inline-block; text-decoration: none;">Clear</a>
+          </div>
+        </div>
+      </form>
+    </div>
+{# Display active filters and sort order #}
+      {% set active_filters = [] %}
+      {% set sort_info = [] %}
+
+      {% if request.args.get('start_date') %}
+        {%- do active_filters.append('Start Date: ' + request.args.get('start_date')) -%}
+      {% endif %}
+      {% if request.args.get('end_date') %}
+        {%- do active_filters.append('End Date: ' + request.args.get('end_date')) -%}
+      {% endif %}
+      {% if request.args.get('resource_type') %}
+        {%- do active_filters.append('Type: ' + request.args.get('resource_type')) -%}
+      {% endif %}
+
+      {% set sort_by_text = request.args.get('sort_by', 'Date')|capitalize %}
+      {% set sort_order_text = "Descending" if request.args.get('sort_order', 'desc') == 'desc' else "Ascending" %}
+      {%- do sort_info.append('Sorted by: ' + sort_by_text + ' (' + sort_order_text + ')') -%}
+
+      <div class="active-filters-summary" style="margin-bottom: 15px; padding: 10px; background-color: #eef; border-radius: 4px; border: 1px solid #cce;">
+        {% if active_filters %}
+          <strong>Currently filtered by:</strong> {{ active_filters|join(', ') }}.
+          <br>
+        {% else %}
+          <strong>Showing all entries.</strong>
+        {% endif %}
+        {{ sort_info|join('') }}
+      </div>
       <h1>Tracked Resource Usage</h1>
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

@@ -4,6 +4,7 @@ import datetime
 import os
 
 app = Flask(__name__)
+app.jinja_env.add_extension('jinja2.ext.do')
 
 # --- Database Configuration ---
 instance_folder_path = app.instance_path
@@ -92,14 +93,55 @@ def add_resource():
 @app.route('/view_resources')
 def view_resources():
     try:
-        all_resources = ResourceUsage.query.order_by(ResourceUsage.date.desc(), ResourceUsage.id.desc()).all()
+        # Get filter/sort parameters from request arguments
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        resource_type_filter = request.args.get('resource_type')
+        sort_by = request.args.get('sort_by', 'date') # Default sort by date
+        sort_order = request.args.get('sort_order', 'desc') # Default sort order descending
+
+        query = ResourceUsage.query
+
+        # Apply filters
+        if start_date_str:
+            try:
+                start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                query = query.filter(ResourceUsage.date >= start_date)
+            except ValueError:
+                flash('Invalid start date format. Please use YYYY-MM-DD.', 'error')
+
+        if end_date_str:
+            try:
+                end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                query = query.filter(ResourceUsage.date <= end_date)
+            except ValueError:
+                flash('Invalid end date format. Please use YYYY-MM-DD.', 'error')
+
+        if resource_type_filter and resource_type_filter != "": # "" means 'All Types'
+            query = query.filter(ResourceUsage.resource_type == resource_type_filter)
+
+        # Apply sorting
+        sort_column = ResourceUsage.date # Default sort column
+        if sort_by == 'resource_type':
+            sort_column = ResourceUsage.resource_type
+        elif sort_by == 'quantity':
+            sort_column = ResourceUsage.quantity
+
+        if sort_order == 'asc':
+            query = query.order_by(sort_column.asc(), ResourceUsage.id.asc())
+        else: # Default to descending
+            query = query.order_by(sort_column.desc(), ResourceUsage.id.desc())
+
+        all_resources = query.all()
+
     except Exception as e:
-        app.logger.error(f"Error fetching resources: {e}")
-        flash('Could not retrieve resource data from the database.', 'error')
+        app.logger.error(f"Error fetching or filtering resources: {e}")
+        flash('Could not retrieve or filter resource data from the database.', 'error')
         all_resources = []
-    return render_template('view_resources.html', resources=all_resources)
 
-
+    return render_template('view_resources.html',
+                           resources=all_resources
+                          )
 @app.route('/edit_resource/<int:id>', methods=['GET', 'POST'])
 def edit_resource(id):
     resource_to_edit = ResourceUsage.query.get_or_404(id) # get_or_404 is convenient

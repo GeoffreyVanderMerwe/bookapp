@@ -80,6 +80,23 @@ The Resource Tracking feature has been enhanced with capabilities to edit and de
 
 These actions can be found in the "Actions" column on the resource viewing page.
 
+
+#### Filtering and Sorting Resource Data
+
+The "View All Usage Data" page (`/view_resources`) now includes controls to filter and sort the displayed entries:
+
+- **Filtering**:
+    - **By Date Range**: You can specify a "Start Date" and/or "End Date" to narrow down entries within a specific period.
+    - **By Resource Type**: A dropdown allows you to select a specific resource type (e.g., "Water", "Energy") or view "All Types".
+- **Sorting**:
+    - **Sort By**: You can choose to sort the data by "Date", "Resource Type", or "Quantity".
+    - **Sort Order**: Data can be sorted in "Ascending" or "Descending" order. The default is by "Date" in "Descending" order.
+- **Applying and Clearing**:
+    - Click the "Apply" button to refresh the data view with your selected filters and sort order.
+    - Click the "Clear" button to remove all active filters and reset the sorting to default.
+
+A summary of any active filters and the current sort order is displayed above the data table for clarity.
+
 ## Database Setup
 
 This application uses an SQLite database to store resource usage data. The database file (`sustainability.db`) is located in the `brewery_sustainability_app/instance/` directory.
