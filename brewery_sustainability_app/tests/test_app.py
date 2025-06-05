@@ -29,7 +29,7 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Add New Resource Usage", response.data)
 
-    # --- Tests for Filtering and Sorting ---
+    # --- Tests for Filtering and Sorting (from previous step) ---
 
     def test_view_resources_no_filters_no_data(self):
         response = self.client.get('/view_resources')
@@ -40,7 +40,7 @@ class BasicTests(unittest.TestCase):
         self.assertIn(b"resource_type", response.data)
         self.assertIn(b"sort_by", response.data)
 
-    def _add_sample_data(self):
+    def _add_sample_data(self): # Renamed from _add_api_sample_data for general use if needed
         with app.app_context():
             r1 = ResourceUsage(date=date(2023, 1, 10), resource_type="Water", quantity=100, unit="gallons")
             r2 = ResourceUsage(date=date(2023, 1, 15), resource_type="Energy", quantity=50, unit="kWh")
@@ -51,7 +51,6 @@ class BasicTests(unittest.TestCase):
             return r1, r2, r3, r4
 
     def _get_table_body_content(self, response_data_bytes):
-        """Helper to extract content between <tbody> and </tbody>."""
         response_data_str = response_data_bytes.decode('utf-8')
         table_body_start = response_data_str.find('<tbody>')
         table_body_end = response_data_str.find('</tbody>', table_body_start)
@@ -65,10 +64,9 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"No resource usage data recorded yet.", response.data)
         table_content = self._get_table_body_content(response.data)
-        # Default sort is date descending. R4 (Feb 1) should be first.
-        self.assertTrue(table_content.find("2023-02-01") < table_content.find("2023-01-20"), "Feb 1 should appear before Jan 20 in table")
-        self.assertTrue(table_content.find("2023-01-20") < table_content.find("2023-01-15"), "Jan 20 should appear before Jan 15 in table")
-        self.assertTrue(table_content.find("2023-01-15") < table_content.find("2023-01-10"), "Jan 15 should appear before Jan 10 in table")
+        self.assertTrue(table_content.find("2023-02-01") < table_content.find("2023-01-20"), "Feb 1 before Jan 20")
+        self.assertTrue(table_content.find("2023-01-20") < table_content.find("2023-01-15"), "Jan 20 before Jan 15")
+        self.assertTrue(table_content.find("2023-01-15") < table_content.find("2023-01-10"), "Jan 15 before Jan 10")
 
     def test_view_resources_filter_by_resource_type(self):
         self._add_sample_data()
@@ -78,9 +76,8 @@ class BasicTests(unittest.TestCase):
         self.assertIn("Water", table_content)
         self.assertNotIn("Energy", table_content)
         self.assertNotIn("Other", table_content)
-        self.assertIn("100", table_content) # r1 quantity
-        self.assertIn("120", table_content) # r3 quantity
-        # Check form repopulation (this is fine on full response data)
+        self.assertIn("100", table_content)
+        self.assertIn("120", table_content)
         self.assertIn(b'<option value="Water" selected', response.data)
 
     def test_view_resources_filter_by_date_range(self):
@@ -88,11 +85,10 @@ class BasicTests(unittest.TestCase):
         response = self.client.get('/view_resources?start_date=2023-01-12&end_date=2023-01-25')
         self.assertEqual(response.status_code, 200)
         table_content = self._get_table_body_content(response.data)
-        self.assertNotIn("2023-01-10", table_content) # r1 excluded
-        self.assertIn("2023-01-15", table_content)    # r2 included
-        self.assertIn("2023-01-20", table_content)    # r3 included
-        self.assertNotIn("2023-02-01", table_content) # r4 excluded
-        # Check form repopulation
+        self.assertNotIn("2023-01-10", table_content)
+        self.assertIn("2023-01-15", table_content)
+        self.assertIn("2023-01-20", table_content)
+        self.assertNotIn("2023-02-01", table_content)
         self.assertIn(b'name="start_date" value="2023-01-12"', response.data)
         self.assertIn(b'name="end_date" value="2023-01-25"', response.data)
 
@@ -101,10 +97,8 @@ class BasicTests(unittest.TestCase):
         response = self.client.get('/view_resources?resource_type=Water&sort_by=quantity&sort_order=asc')
         self.assertEqual(response.status_code, 200)
         table_content = self._get_table_body_content(response.data)
-        # For Water type, quantities are 100 and 120. Ascending means 100 then 120.
-        self.assertTrue(table_content.find("100.0") < table_content.find("120.0"), "100 should appear before 120 in sorted table")
+        self.assertTrue(table_content.find("100.0") < table_content.find("120.0"), "100 before 120")
         self.assertNotIn("Energy", table_content)
-        # Check form repopulation
         self.assertIn(b'<option value="Water" selected', response.data)
         self.assertIn(b'<option value="quantity" selected', response.data)
         self.assertIn(b'<option value="asc" selected', response.data)
@@ -114,19 +108,88 @@ class BasicTests(unittest.TestCase):
         response_filtered = self.client.get('/view_resources?resource_type=Energy')
         self.assertEqual(response_filtered.status_code, 200)
         table_content_filtered = self._get_table_body_content(response_filtered.data)
-        self.assertNotIn("Water", table_content_filtered) # Ensure filter worked on table
+        self.assertNotIn("Water", table_content_filtered)
 
-        response_cleared = self.client.get('/view_resources') # Simulate clicking "Clear"
+        response_cleared = self.client.get('/view_resources')
         self.assertEqual(response_cleared.status_code, 200)
         table_content_cleared = self._get_table_body_content(response_cleared.data)
         self.assertIn("Water", table_content_cleared)
         self.assertIn("Energy", table_content_cleared)
         self.assertIn("Other", table_content_cleared)
-        # Check form repopulation (on full response data is fine for these)
         self.assertIn(b'<input type="date" id="start_date" name="start_date" value=""', response_cleared.data)
-        self.assertIn(b'<option value="" selected', response_cleared.data) # "All Types"
-        self.assertIn(b'<option value="date" selected', response_cleared.data) # Default sort_by
-        self.assertIn(b'<option value="desc" selected', response_cleared.data) # Default sort_order
+        self.assertIn(b'<option value="" selected', response_cleared.data)
+        self.assertIn(b'<option value="date" selected', response_cleared.data)
+        self.assertIn(b'<option value="desc" selected', response_cleared.data)
+
+    # --- Tests for API Endpoint /api/resource_chart_data ---
+
+    def test_api_resource_chart_data_empty_db(self):
+        """Test /api/resource_chart_data with no data in the database."""
+        response = self.client.get('/api/resource_chart_data')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(json_data['labels'], [])
+        self.assertEqual(len(json_data['datasets']), 1)
+        self.assertEqual(json_data['datasets'][0]['data'], [])
+        self.assertEqual(json_data['datasets'][0]['label'], 'Total Quantity Used')
+
+    def _add_api_sample_data(self): # Kept separate if API needs different/more specific data later
+        """Helper to add data specifically for API chart tests."""
+        with app.app_context():
+            r1 = ResourceUsage(date=date(2023, 3, 10), resource_type="Water", quantity=100, unit="gallons")
+            r2 = ResourceUsage(date=date(2023, 3, 15), resource_type="Energy", quantity=50, unit="kWh")
+            r3 = ResourceUsage(date=date(2023, 3, 20), resource_type="Water", quantity=120, unit="gallons")
+            r4 = ResourceUsage(date=date(2023, 4, 1), resource_type="Other", quantity=10, unit="units")
+            db.session.add_all([r1, r2, r3, r4])
+            db.session.commit()
+
+    def test_api_resource_chart_data_with_data_no_filters(self):
+        """Test /api/resource_chart_data with data and no filters."""
+        self._add_api_sample_data()
+        response = self.client.get('/api/resource_chart_data')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+
+        self.assertEqual(json_data['labels'], ['Energy', 'Other', 'Water'])
+        self.assertEqual(len(json_data['datasets']), 1)
+        self.assertEqual(json_data['datasets'][0]['label'], 'Total Quantity Used')
+        self.assertEqual(json_data['datasets'][0]['data'], [50.0, 10.0, 220.0])
+
+    def test_api_resource_chart_data_with_date_filters(self):
+        """Test /api/resource_chart_data with start_date and end_date filters."""
+        self._add_api_sample_data()
+        response = self.client.get('/api/resource_chart_data?start_date=2023-03-12&end_date=2023-03-25')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(json_data['labels'], ['Energy', 'Water'])
+        self.assertEqual(len(json_data['datasets']), 1)
+        self.assertEqual(json_data['datasets'][0]['data'], [50.0, 120.0])
+
+    def test_api_resource_chart_data_with_start_date_only(self):
+        """Test /api/resource_chart_data with only start_date filter."""
+        self._add_api_sample_data()
+        response = self.client.get('/api/resource_chart_data?start_date=2023-03-16')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(json_data['labels'], ['Other', 'Water'])
+        self.assertEqual(json_data['datasets'][0]['data'], [10.0, 120.0])
+
+    def test_api_resource_chart_data_with_end_date_only(self):
+        """Test /api/resource_chart_data with only end_date filter."""
+        self._add_api_sample_data()
+        response = self.client.get('/api/resource_chart_data?end_date=2023-03-18')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(json_data['labels'], ['Energy', 'Water'])
+        self.assertEqual(json_data['datasets'][0]['data'], [50.0, 100.0])
+
+    def test_api_resource_chart_data_invalid_date_format(self):
+        """Test API with invalid date format (should be ignored, returning all data)."""
+        self._add_api_sample_data()
+        response = self.client.get('/api/resource_chart_data?start_date=invalid-date')
+        self.assertEqual(response.status_code, 200)
+        json_data = response.get_json()
+        self.assertEqual(len(json_data['labels']), 3) # All 3 resource types (Energy, Other, Water)
 
 if __name__ == "__main__":
     unittest.main()

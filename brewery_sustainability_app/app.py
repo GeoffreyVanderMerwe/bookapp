@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 import datetime
 import os
 
@@ -214,6 +215,60 @@ def delete_resource(id):
         app.logger.error(f"Error deleting resource ID {id}: {e}")
         flash('An error occurred while deleting the entry. Please try again.', 'error')
     return redirect(url_for('view_resources'))
+@app.route('/charts')
+def charts():
+    return render_template('charts.html')
+@app.route('/api/resource_chart_data')
+def resource_chart_data():
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+
+        query = db.session.query(
+            ResourceUsage.resource_type,
+            func.sum(ResourceUsage.quantity).label('total_quantity')
+        )
+
+        if start_date_str:
+            try:
+                start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                query = query.filter(ResourceUsage.date >= start_date)
+            except ValueError:
+                pass
+
+        if end_date_str:
+            try:
+                end_date = datetime.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                query = query.filter(ResourceUsage.date <= end_date)
+            except ValueError:
+                pass
+
+        query = query.group_by(ResourceUsage.resource_type).order_by(ResourceUsage.resource_type)
+        aggregated_data = query.all()
+
+        chart_data = {
+            'labels': [item.resource_type for item in aggregated_data],
+            'datasets': [{
+                'label': 'Total Quantity Used',
+                'data': [item.total_quantity for item in aggregated_data],
+                'backgroundColor': [
+                    'rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)',
+                    'rgba(255, 206, 86, 0.2)', 'rgba(75, 192, 192, 0.2)',
+                    'rgba(153, 102, 255, 0.2)', 'rgba(255, 159, 64, 0.2)'
+                ],
+                'borderColor': [
+                    'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)',
+                    'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)',
+                    'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'
+                ],
+                'borderWidth': 1
+            }]
+        }
+        return jsonify(chart_data)
+
+    except Exception as e:
+        app.logger.error(f"Error generating chart data: {e}")
+        return jsonify({'error': str(e), 'labels': [], 'datasets': []}), 500
 # --- CLI Commands ---
 @app.cli.command("init-db")
 def init_db_command():

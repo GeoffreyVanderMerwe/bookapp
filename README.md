@@ -97,6 +97,20 @@ The "View All Usage Data" page (`/view_resources`) now includes controls to filt
 
 A summary of any active filters and the current sort order is displayed above the data table for clarity.
 
+
+#### Basic Visualizations
+
+A new "View Usage Charts" page (`/charts`) has been added to provide basic visualizations of resource usage data.
+
+- **Accessing Charts**: Links to this page are available on the homepage and the "View All Usage Data" page.
+- **Current Chart**:
+    - **Total Usage by Resource Type**: A bar chart displays the total quantity of each resource type used.
+- **Filtering**:
+    - The chart data can be filtered by a "Start Date" and "End Date". Use the provided date input fields and click "Apply Filters" to update the chart.
+- **Technology**: Charts are rendered using Chart.js. Data is fetched dynamically from an API endpoint (`/api/resource_chart_data`).
+
+This feature provides a quick visual overview of resource consumption patterns.
+
 ## Database Setup
 
 This application uses an SQLite database to store resource usage data. The database file (`sustainability.db`) is located in the `brewery_sustainability_app/instance/` directory.
