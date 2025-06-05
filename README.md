@@ -71,6 +71,15 @@ This application now includes a basic resource tracking feature that allows user
 - **Add Resource Usage Data**: Navigate to the "Add Resource Usage" page (linked from the homepage) to input daily or periodic usage for resources like water, energy, raw materials, etc. The form includes fields for date, resource type, quantity, and unit.
 - **View Tracked Data**: Navigate to the "View All Usage Data" page (linked from the homepage) to see a table of all submitted resource usage data, ordered by the most recent entries first.
 
+### Enhancements to Resource Tracking (Edit/Delete)
+
+The Resource Tracking feature has been enhanced with capabilities to edit and delete existing entries:
+
+- **Edit Entries**: On the "View All Usage Data" page, each resource entry now has an "Edit" button. Clicking this will take you to a form pre-filled with the entry's current data, where you can make modifications and save them.
+- **Delete Entries**: Each entry on the "View All Usage Data" page also has a "Delete" button. Clicking this will prompt for confirmation, and if confirmed, will remove the entry from the database.
+
+These actions can be found in the "Actions" column on the resource viewing page.
+
 ## Database Setup
 
 This application uses an SQLite database to store resource usage data. The database file (`sustainability.db`) is located in the `brewery_sustainability_app/instance/` directory.

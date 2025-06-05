@@ -100,6 +100,78 @@ def view_resources():
     return render_template('view_resources.html', resources=all_resources)
 
 
+@app.route('/edit_resource/<int:id>', methods=['GET', 'POST'])
+def edit_resource(id):
+    resource_to_edit = ResourceUsage.query.get_or_404(id) # get_or_404 is convenient
+
+    if request.method == 'POST':
+        form_data_for_template = request.form # Preserve form data for re-rendering on error
+        date_str = request.form.get('date')
+        resource_type = request.form.get('resource_type')
+        quantity_str = request.form.get('quantity')
+        unit = request.form.get('unit')
+
+        # Validation (similar to add_resource)
+        if not date_str:
+            flash('Date is required.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+        try:
+            entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+
+        if not resource_type:
+            flash('Resource type is required.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+
+        if not quantity_str:
+            flash('Quantity is required.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+        try:
+            quantity = float(quantity_str)
+            if quantity <= 0:
+                flash('Quantity must be a positive number.', 'error')
+                return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+        except ValueError:
+            flash('Quantity must be a valid number.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+
+        if not unit or len(unit.strip()) == 0:
+            flash('Unit is required and cannot be empty.', 'error')
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+
+        # If all validation passes:
+        try:
+            resource_to_edit.date = entry_date
+            resource_to_edit.resource_type = resource_type
+            resource_to_edit.quantity = quantity
+            resource_to_edit.unit = unit.strip()
+
+            db.session.commit()
+            flash('Resource usage updated successfully!', 'success')
+            return redirect(url_for('view_resources'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Database error when updating resource ID {id}: {e}")
+            flash('An error occurred while updating the data. Please try again.', 'error')
+            # Pass original resource and current (failed) form data back to template
+            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 500
+
+    # For GET request, render the form with the existing resource data
+    return render_template('edit_resource.html', resource=resource_to_edit, form_data=None)
+@app.route('/delete_resource/<int:id>', methods=['POST'])
+def delete_resource(id):
+    resource_to_delete = ResourceUsage.query.get_or_404(id) # Fetches or returns 404 if not found
+    try:
+        db.session.delete(resource_to_delete)
+        db.session.commit()
+        flash('Resource usage entry deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error deleting resource ID {id}: {e}")
+        flash('An error occurred while deleting the entry. Please try again.', 'error')
+    return redirect(url_for('view_resources'))
 # --- CLI Commands ---
 @app.cli.command("init-db")
 def init_db_command():
