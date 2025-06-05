@@ -111,6 +111,24 @@ A new "View Usage Charts" page (`/charts`) has been added to provide basic visua
 
 This feature provides a quick visual overview of resource consumption patterns.
 
+
+
+### Waste Management (New Feature)
+
+The application now includes a feature for tracking waste generation and disposal:
+
+- **Add Waste Entry**: Navigate to the "Add Waste Entry" page (linked from the homepage via `/add_waste`) to record details about waste produced. The form includes fields for:
+    - Date
+    - Waste Type (e.g., 'Spent Grain', 'Glass', 'Chemicals')
+    - Quantity and Unit
+    - Disposal Method (e.g., 'Recycled', 'Composted', 'Landfill')
+    - Optional notes.
+- **View Waste Entries**: Navigate to the "View Waste Entries" page (linked from the homepage via `/view_waste`) to see a table of all submitted waste entries, ordered by the most recent entries first.
+
+This feature helps breweries monitor their waste streams and identify areas for reduction or improved disposal practices.
+
+*(Future enhancements for Waste Management may include editing/deleting entries, filtering/sorting, and visualizations, similar to the Resource Tracking module.)*
+
 ## Database Setup
 
 This application uses an SQLite database to store resource usage data. The database file (`sustainability.db`) is located in the `brewery_sustainability_app/instance/` directory.
@@ -138,6 +156,9 @@ The project structure has evolved to include the application logic and database:
 │   │   ├── index.html           # Main landing page
 │   │   ├── add_resource.html    # Form to add resource usage
 │   │   └── view_resources.html  # Page to display tracked resources
+│   │   ├── add_waste.html       # Form to add waste entries\
+│   │   ├── view_waste.html      # Page to display waste entries\
+│   │   ├── charts.html          # Page for displaying charts
 │   └── tests/                   # Directory for unit tests
 │       ├── __init__.py          # Makes 'tests' a Python package
 │       └── test_app.py          # Basic test structure (implementation pending)

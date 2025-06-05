@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>Edit Waste Entry - Brewery Sustainability</title>
+    <style>
+      body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+      .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+      h1 { color: #2c3e50; text-align: center;}
+      label { display: block; margin-top: 10px; font-weight: bold; }
+      input[type="text"], input[type="number"], input[type="date"], select, textarea {
+        width: 100%;
+        padding: 10px; margin-top: 5px; border-radius: 4px; border: 1px solid #ddd;
+        box-sizing: border-box;
+      }
+      textarea { min-height: 80px; }
+      input[type="submit"] {
+        background-color: #28a745; /* Green for update */
+        color: white; padding: 10px 20px; border: none; border-radius: 4px;
+        cursor: pointer; font-size: 16px; margin-top: 20px; width: 100%;
+      }
+      input[type="submit"]:hover { background-color: #218838; }
+      .nav-link { display: inline-block; margin-top: 20px; padding: 10px; background-color: #e0e0e0; text-decoration: none; color: #333; border-radius: 4px; margin-right: 10px;}
+      .nav-link:hover { background-color: #d0d0d0; }
+      .nav-container { text-align: center; }
+      /* Flash message styles */
+      .flashes { list-style-type: none; padding: 0; margin: 1em 0; }
+      .flashes li { padding: 0.75em 1.25em; margin-bottom: 1rem; border: 1px solid transparent; border-radius: 0.25rem; }
+      .flashes .success { color: #155724; background-color: #d4edda; border-color: #c3e6cb; }
+      .flashes .error { color: #721c24; background-color: #f8d7da; border-color: #f5c6cb; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Edit Waste Entry</h1>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="{{ category }}">{{ message }}</li>
+          {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      {# 'waste_entry' is passed on GET, 'form_data' on POST validation error #}
+      <form method="POST" action="{{ url_for('edit_waste', id=waste_entry.id if waste_entry else form_data.id) }}">
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date"
+               value="{{ form_data.get('date') if form_data else waste_entry.date.strftime('%Y-%m-%d') }}" required>
+
+        <label for="waste_type">Waste Type:</label>
+        <input list="waste_type_suggestions" id="waste_type" name="waste_type"
+               value="{{ form_data.get('waste_type') if form_data else waste_entry.waste_type }}" required>
+        <datalist id="waste_type_suggestions">
+            <option value="Spent Grain">
+            <option value="Glass">
+            <option value="Cardboard">
+            <option value="Plastics">
+            <option value="Organic Waste (trub, yeast)">
+            <option value="Chemicals (cleaning)">
+            <option value="Mixed General Waste">
+        </datalist>
+
+        <label for="quantity">Quantity:</label>
+        <input type="number" id="quantity" name="quantity" step="any"
+               value="{{ form_data.get('quantity') if form_data else waste_entry.quantity }}" required>
+
+        <label for="unit">Unit:</label>
+        <input type="text" id="unit" name="unit"
+               value="{{ form_data.get('unit') if form_data else waste_entry.unit }}" required placeholder="e.g., kg, lbs, items, liters">
+
+        <label for="disposal_method">Disposal Method:</label>
+        <input list="disposal_method_suggestions" id="disposal_method" name="disposal_method"
+               value="{{ form_data.get('disposal_method') if form_data else waste_entry.disposal_method }}">
+        <datalist id="disposal_method_suggestions">
+            <option value="Recycled">
+            <option value="Landfill">
+            <option value="Composted">
+            <option value="Repurposed (e.g., animal feed)">
+            <option value="Hazardous Waste Disposal">
+            <option value="Incinerated">
+        </datalist>
+
+        <label for="notes">Notes (Optional):</label>
+        <textarea id="notes" name="notes">{{ form_data.get('notes') if form_data else (waste_entry.notes if waste_entry.notes else '') }}</textarea>
+
+        <input type="submit" value="Update Waste Entry">
+      </form>
+      <div class="nav-container">
+        <a href="{{ url_for('view_waste') }}" class="nav-link">Cancel & View All</a>
+      </div>
+    </div>
+  </body>
+</html>

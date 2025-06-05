@@ -1,6 +1,6 @@
 import unittest
 import os
-from app import app, db, ResourceUsage # App is in the current CWD for tests
+from app import app, db, ResourceUsage, WasteEntry # Added WasteEntry
 from datetime import date
 
 # Set the app to testing mode and configure a test database
@@ -29,7 +29,7 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Add New Resource Usage", response.data)
 
-    # --- Tests for Filtering and Sorting (from previous step) ---
+    # --- Tests for Filtering and Sorting (Resource Usage) ---
 
     def test_view_resources_no_filters_no_data(self):
         response = self.client.get('/view_resources')
@@ -40,7 +40,7 @@ class BasicTests(unittest.TestCase):
         self.assertIn(b"resource_type", response.data)
         self.assertIn(b"sort_by", response.data)
 
-    def _add_sample_data(self): # Renamed from _add_api_sample_data for general use if needed
+    def _add_sample_resource_data(self): # Renamed for clarity
         with app.app_context():
             r1 = ResourceUsage(date=date(2023, 1, 10), resource_type="Water", quantity=100, unit="gallons")
             r2 = ResourceUsage(date=date(2023, 1, 15), resource_type="Energy", quantity=50, unit="kWh")
@@ -59,7 +59,7 @@ class BasicTests(unittest.TestCase):
         return ""
 
     def test_view_resources_with_data_default_sort(self):
-        self._add_sample_data()
+        self._add_sample_resource_data()
         response = self.client.get('/view_resources')
         self.assertEqual(response.status_code, 200)
         self.assertNotIn(b"No resource usage data recorded yet.", response.data)
@@ -69,7 +69,7 @@ class BasicTests(unittest.TestCase):
         self.assertTrue(table_content.find("2023-01-15") < table_content.find("2023-01-10"), "Jan 15 before Jan 10")
 
     def test_view_resources_filter_by_resource_type(self):
-        self._add_sample_data()
+        self._add_sample_resource_data()
         response = self.client.get('/view_resources?resource_type=Water')
         self.assertEqual(response.status_code, 200)
         table_content = self._get_table_body_content(response.data)
@@ -81,7 +81,7 @@ class BasicTests(unittest.TestCase):
         self.assertIn(b'<option value="Water" selected', response.data)
 
     def test_view_resources_filter_by_date_range(self):
-        self._add_sample_data()
+        self._add_sample_resource_data()
         response = self.client.get('/view_resources?start_date=2023-01-12&end_date=2023-01-25')
         self.assertEqual(response.status_code, 200)
         table_content = self._get_table_body_content(response.data)
@@ -93,7 +93,7 @@ class BasicTests(unittest.TestCase):
         self.assertIn(b'name="end_date" value="2023-01-25"', response.data)
 
     def test_view_resources_filter_and_sort(self):
-        self._add_sample_data()
+        self._add_sample_resource_data()
         response = self.client.get('/view_resources?resource_type=Water&sort_by=quantity&sort_order=asc')
         self.assertEqual(response.status_code, 200)
         table_content = self._get_table_body_content(response.data)
@@ -104,7 +104,7 @@ class BasicTests(unittest.TestCase):
         self.assertIn(b'<option value="asc" selected', response.data)
 
     def test_view_resources_clear_filters(self):
-        self._add_sample_data()
+        self._add_sample_resource_data()
         response_filtered = self.client.get('/view_resources?resource_type=Energy')
         self.assertEqual(response_filtered.status_code, 200)
         table_content_filtered = self._get_table_body_content(response_filtered.data)
@@ -124,7 +124,6 @@ class BasicTests(unittest.TestCase):
     # --- Tests for API Endpoint /api/resource_chart_data ---
 
     def test_api_resource_chart_data_empty_db(self):
-        """Test /api/resource_chart_data with no data in the database."""
         response = self.client.get('/api/resource_chart_data')
         self.assertEqual(response.status_code, 200)
         json_data = response.get_json()
@@ -133,8 +132,7 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(json_data['datasets'][0]['data'], [])
         self.assertEqual(json_data['datasets'][0]['label'], 'Total Quantity Used')
 
-    def _add_api_sample_data(self): # Kept separate if API needs different/more specific data later
-        """Helper to add data specifically for API chart tests."""
+    def _add_api_sample_data(self):
         with app.app_context():
             r1 = ResourceUsage(date=date(2023, 3, 10), resource_type="Water", quantity=100, unit="gallons")
             r2 = ResourceUsage(date=date(2023, 3, 15), resource_type="Energy", quantity=50, unit="kWh")
@@ -144,19 +142,16 @@ class BasicTests(unittest.TestCase):
             db.session.commit()
 
     def test_api_resource_chart_data_with_data_no_filters(self):
-        """Test /api/resource_chart_data with data and no filters."""
         self._add_api_sample_data()
         response = self.client.get('/api/resource_chart_data')
         self.assertEqual(response.status_code, 200)
         json_data = response.get_json()
-
         self.assertEqual(json_data['labels'], ['Energy', 'Other', 'Water'])
         self.assertEqual(len(json_data['datasets']), 1)
         self.assertEqual(json_data['datasets'][0]['label'], 'Total Quantity Used')
         self.assertEqual(json_data['datasets'][0]['data'], [50.0, 10.0, 220.0])
 
     def test_api_resource_chart_data_with_date_filters(self):
-        """Test /api/resource_chart_data with start_date and end_date filters."""
         self._add_api_sample_data()
         response = self.client.get('/api/resource_chart_data?start_date=2023-03-12&end_date=2023-03-25')
         self.assertEqual(response.status_code, 200)
@@ -166,7 +161,6 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(json_data['datasets'][0]['data'], [50.0, 120.0])
 
     def test_api_resource_chart_data_with_start_date_only(self):
-        """Test /api/resource_chart_data with only start_date filter."""
         self._add_api_sample_data()
         response = self.client.get('/api/resource_chart_data?start_date=2023-03-16')
         self.assertEqual(response.status_code, 200)
@@ -175,7 +169,6 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(json_data['datasets'][0]['data'], [10.0, 120.0])
 
     def test_api_resource_chart_data_with_end_date_only(self):
-        """Test /api/resource_chart_data with only end_date filter."""
         self._add_api_sample_data()
         response = self.client.get('/api/resource_chart_data?end_date=2023-03-18')
         self.assertEqual(response.status_code, 200)
@@ -184,12 +177,113 @@ class BasicTests(unittest.TestCase):
         self.assertEqual(json_data['datasets'][0]['data'], [50.0, 100.0])
 
     def test_api_resource_chart_data_invalid_date_format(self):
-        """Test API with invalid date format (should be ignored, returning all data)."""
         self._add_api_sample_data()
         response = self.client.get('/api/resource_chart_data?start_date=invalid-date')
         self.assertEqual(response.status_code, 200)
         json_data = response.get_json()
-        self.assertEqual(len(json_data['labels']), 3) # All 3 resource types (Energy, Other, Water)
+        self.assertEqual(len(json_data['labels']), 3)
+
+    # --- Tests for Waste Management ---
+
+    def test_add_waste_get_page(self):
+        """Test GET request to /add_waste loads the form."""
+        response = self.client.get('/add_waste')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Add New Waste Entry", response.data)
+        self.assertIn(b"Waste Type", response.data)
+        self.assertIn(b"Disposal Method", response.data)
+
+    def test_add_waste_post_success(self):
+        """Test successful POST to /add_waste with valid data."""
+        with self.client: # Using 'with self.client' ensures app_context for db operations
+            response = self.client.post('/add_waste', data={
+                'date': '2023-04-01',
+                'waste_type': 'Spent Grain',
+                'quantity': '250.75',
+                'unit': 'kg',
+                'disposal_method': 'Repurposed (e.g., animal feed)',
+                'notes': 'Sent to local farm'
+            }, follow_redirects=True) # follow_redirects is True to check final page
+
+            self.assertEqual(response.status_code, 200)
+            self.assertIn(b"Waste entry added successfully!", response.data) # Flash message
+            self.assertIn(b"Tracked Waste Entries", response.data) # Check we are on view_waste page
+            # Check for some of the submitted data on the view page
+            self.assertIn(b"2023-04-01", response.data)
+            self.assertIn(b"Spent Grain", response.data)
+            self.assertIn(b"250.75", response.data)
+            self.assertIn(b"Repurposed (e.g., animal feed)", response.data)
+            self.assertIn(b"Sent to local farm", response.data)
+
+            # Verify data in database
+            entry = WasteEntry.query.filter_by(date=date(2023, 4, 1)).first()
+            self.assertIsNotNone(entry)
+            self.assertEqual(entry.waste_type, 'Spent Grain')
+            self.assertEqual(entry.quantity, 250.75)
+            self.assertEqual(entry.notes, 'Sent to local farm')
+
+    def test_add_waste_post_invalid_data_missing_type(self):
+        """Test POST to /add_waste with missing waste_type."""
+        with self.client:
+            response = self.client.post('/add_waste', data={
+                'date': '2023-04-02',
+                # 'waste_type': '', # Missing, or not provided
+                'quantity': '10',
+                'unit': 'bins',
+                'disposal_method': 'Recycled'
+            }, follow_redirects=True)
+
+            self.assertEqual(response.status_code, 400) # Should be 400 due to validation error
+            self.assertIn(b"Add New Waste Entry", response.data) # Should re-render the add form
+            self.assertIn(b"Waste Type is required.", response.data) # Check for flash error
+
+            entry = WasteEntry.query.filter_by(date=date(2023, 4, 2)).first()
+            self.assertIsNone(entry) # No entry should be created
+
+    def test_add_waste_post_invalid_quantity_negative(self):
+        """Test POST to /add_waste with negative quantity."""
+        with self.client:
+            response = self.client.post('/add_waste', data={
+                'date': '2023-04-03',
+                'waste_type': 'Glass',
+                'quantity': '-5', # Invalid
+                'unit': 'kg',
+                'disposal_method': 'Recycled'
+            }, follow_redirects=True)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn(b"Add New Waste Entry", response.data)
+            self.assertIn(b"Quantity must be a positive number.", response.data)
+
+    def test_view_waste_no_entries(self):
+        """Test /view_waste page with no waste entries."""
+        response = self.client.get('/view_waste')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Tracked Waste Entries", response.data)
+        self.assertIn(b"No waste entries recorded yet.", response.data)
+
+    def test_view_waste_with_entries(self):
+        """Test /view_waste page displays existing waste entries."""
+        with app.app_context(): # Ensure operations are within app context for db
+            entry1 = WasteEntry(date=date(2023, 4, 5), waste_type="Cardboard", quantity=30, unit="kg", disposal_method="Recycled", notes="Clean, dry cardboard")
+            entry2 = WasteEntry(date=date(2023, 4, 6), waste_type="Organic (non-grain)", quantity=15, unit="lbs", disposal_method="Composted")
+            db.session.add_all([entry1, entry2])
+            db.session.commit()
+
+        response = self.client.get('/view_waste')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Tracked Waste Entries", response.data)
+        self.assertNotIn(b"No waste entries recorded yet.", response.data)
+        # Check for data from both entries using the helper for table content
+        table_content = self._get_table_body_content(response.data)
+        self.assertIn("2023-04-05", table_content)
+        self.assertIn("Cardboard", table_content)
+        self.assertIn("30", table_content)
+        self.assertIn("Clean, dry cardboard", table_content)
+
+        self.assertIn("2023-04-06", table_content)
+        self.assertIn("Organic (non-grain)", table_content)
+        self.assertIn("15", table_content)
+        self.assertIn("Composted", table_content)
 
 if __name__ == "__main__":
     unittest.main()
