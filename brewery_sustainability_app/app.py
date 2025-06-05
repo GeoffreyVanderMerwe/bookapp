@@ -29,6 +29,7 @@ class ResourceUsage(db.Model):
 
     def __repr__(self):
         return f'<ResourceUsage ID: {self.id} on {self.date} - {self.resource_type}: {self.quantity} {self.unit}>'
+
 # --- New Model: WasteEntry ---
 class WasteEntry(db.Model):
     __tablename__ = 'waste_entries' # Explicit table name
@@ -42,6 +43,7 @@ class WasteEntry(db.Model):
 
     def __repr__(self):
         return f'<WasteEntry {self.id} on {self.date}: {self.waste_type} - {self.quantity} {self.unit}>'
+
 # --- Routes ---
 @app.route('/')
 def index():
@@ -101,21 +103,19 @@ def add_resource():
             flash('An error occurred while saving the data to the database.', 'error') # User-friendly message
             return render_template('add_resource.html', form_data=form_data_to_render), 500
 
-    return render_template('add_resource.html', form_data=form_data_to_render)
+    return render_template('add_resource.html', form_data={}) # Corrected from previous form_data=form_data_to_render
 
 @app.route('/view_resources')
 def view_resources():
     try:
-        # Get filter/sort parameters from request arguments
         start_date_str = request.args.get('start_date')
         end_date_str = request.args.get('end_date')
         resource_type_filter = request.args.get('resource_type')
-        sort_by = request.args.get('sort_by', 'date') # Default sort by date
-        sort_order = request.args.get('sort_order', 'desc') # Default sort order descending
+        sort_by = request.args.get('sort_by', 'date')
+        sort_order = request.args.get('sort_order', 'desc')
 
         query = ResourceUsage.query
 
-        # Apply filters
         if start_date_str:
             try:
                 start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -130,11 +130,10 @@ def view_resources():
             except ValueError:
                 flash('Invalid end date format. Please use YYYY-MM-DD.', 'error')
 
-        if resource_type_filter and resource_type_filter != "": # "" means 'All Types'
+        if resource_type_filter and resource_type_filter != "":
             query = query.filter(ResourceUsage.resource_type == resource_type_filter)
 
-        # Apply sorting
-        sort_column = ResourceUsage.date # Default sort column
+        sort_column = ResourceUsage.date
         if sort_by == 'resource_type':
             sort_column = ResourceUsage.resource_type
         elif sort_by == 'quantity':
@@ -142,7 +141,7 @@ def view_resources():
 
         if sort_order == 'asc':
             query = query.order_by(sort_column.asc(), ResourceUsage.id.asc())
-        else: # Default to descending
+        else:
             query = query.order_by(sort_column.desc(), ResourceUsage.id.desc())
 
         all_resources = query.all()
@@ -155,48 +154,56 @@ def view_resources():
     return render_template('view_resources.html',
                            resources=all_resources
                           )
+
 @app.route('/edit_resource/<int:id>', methods=['GET', 'POST'])
 def edit_resource(id):
-    resource_to_edit = ResourceUsage.query.get_or_404(id) # get_or_404 is convenient
+    resource_to_edit = ResourceUsage.query.get_or_404(id)
 
     if request.method == 'POST':
-        form_data_for_template = request.form # Preserve form data for re-rendering on error
+        form_data_for_template = request.form
         date_str = request.form.get('date')
         resource_type = request.form.get('resource_type')
         quantity_str = request.form.get('quantity')
         unit = request.form.get('unit')
 
-        # Validation (similar to add_resource)
+        error_occurred = False
+        entry_date = None
+        quantity = None
+
         if not date_str:
             flash('Date is required.', 'error')
-            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
-        try:
-            entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
-            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+            error_occurred = True
+        else:
+            try:
+                entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
+                error_occurred = True
 
         if not resource_type:
             flash('Resource type is required.', 'error')
-            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+            error_occurred = True
 
         if not quantity_str:
             flash('Quantity is required.', 'error')
-            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
-        try:
-            quantity = float(quantity_str)
-            if quantity <= 0:
-                flash('Quantity must be a positive number.', 'error')
-                return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
-        except ValueError:
-            flash('Quantity must be a valid number.', 'error')
-            return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
+            error_occurred = True
+        else:
+            try:
+                quantity = float(quantity_str)
+                if quantity <= 0:
+                    flash('Quantity must be a positive number.', 'error')
+                    error_occurred = True
+            except ValueError:
+                flash('Quantity must be a valid number.', 'error')
+                error_occurred = True
 
         if not unit or len(unit.strip()) == 0:
             flash('Unit is required and cannot be empty.', 'error')
+            error_occurred = True
+
+        if error_occurred:
             return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 400
 
-        # If all validation passes:
         try:
             resource_to_edit.date = entry_date
             resource_to_edit.resource_type = resource_type
@@ -210,77 +217,13 @@ def edit_resource(id):
             db.session.rollback()
             app.logger.error(f"Database error when updating resource ID {id}: {e}")
             flash('An error occurred while updating the data. Please try again.', 'error')
-            # Pass original resource and current (failed) form data back to template
             return render_template('edit_resource.html', resource=resource_to_edit, form_data=form_data_for_template), 500
 
-    # For GET request, render the form with the existing resource data
     return render_template('edit_resource.html', resource=resource_to_edit, form_data=None)
-@app.route('/edit_waste/<int:id>', methods=['GET', 'POST'])
-def edit_waste(id):
-    waste_entry_to_edit = WasteEntry.query.get_or_404(id)
 
-    if request.method == 'POST':
-        form_data_for_template = request.form # Preserve for re-rendering on error
-        date_str = request.form.get('date')
-        waste_type = request.form.get('waste_type')
-        quantity_str = request.form.get('quantity')
-        unit = request.form.get('unit')
-        disposal_method = request.form.get('disposal_method')
-        notes = request.form.get('notes')
-
-        # Validation (similar to add_waste)
-        if not date_str:
-            flash('Date is required.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-        try:
-            entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-
-        if not waste_type or len(waste_type.strip()) == 0:
-            flash('Waste Type is required.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-
-        if not quantity_str:
-            flash('Quantity is required.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-        try:
-            quantity = float(quantity_str)
-            if quantity <= 0:
-                flash('Quantity must be a positive number.', 'error')
-                return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-        except ValueError:
-            flash('Quantity must be a valid number.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-
-        if not unit or len(unit.strip()) == 0:
-            flash('Unit is required.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 400
-
-        # If all validation passes:
-        try:
-            waste_entry_to_edit.date = entry_date
-            waste_entry_to_edit.waste_type = waste_type.strip()
-            waste_entry_to_edit.quantity = quantity
-            waste_entry_to_edit.unit = unit.strip()
-            waste_entry_to_edit.disposal_method = disposal_method.strip() if disposal_method else None
-            waste_entry_to_edit.notes = notes.strip() if notes else None
-
-            db.session.commit()
-            flash('Waste entry updated successfully!', 'success')
-            return redirect(url_for('view_waste'))
-        except Exception as e:
-            db.session.rollback()
-            app.logger.error(f"Database error when updating waste entry ID {id}: {e}")
-            flash('An error occurred while updating the waste entry. Please try again.', 'error')
-            return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=form_data_for_template), 500
-
-    # For GET request, render the form with the existing waste entry data
-    return render_template('edit_waste.html', waste_entry=waste_entry_to_edit, form_data=None)
 @app.route('/delete_resource/<int:id>', methods=['POST'])
 def delete_resource(id):
-    resource_to_delete = ResourceUsage.query.get_or_404(id) # Fetches or returns 404 if not found
+    resource_to_delete = ResourceUsage.query.get_or_404(id)
     try:
         db.session.delete(resource_to_delete)
         db.session.commit()
@@ -290,71 +233,82 @@ def delete_resource(id):
         app.logger.error(f"Error deleting resource ID {id}: {e}")
         flash('An error occurred while deleting the entry. Please try again.', 'error')
     return redirect(url_for('view_resources'))
+
 @app.route('/view_waste')
 def view_waste():
     try:
-        # For now, simple fetch all, ordered by date desc. Filtering/sorting later.
         all_waste_entries = WasteEntry.query.order_by(WasteEntry.date.desc(), WasteEntry.id.desc()).all()
     except Exception as e:
         app.logger.error(f"Error fetching waste entries: {e}")
         flash('Could not retrieve waste data from the database.', 'error')
         all_waste_entries = []
     return render_template('view_waste.html', waste_entries=all_waste_entries)
+
 @app.route('/add_waste', methods=['GET', 'POST'])
 def add_waste():
     if request.method == 'POST':
-        form_data_for_template = request.form # Preserve form data for re-rendering
+        form_data_for_template = request.form
         date_str = request.form.get('date')
         waste_type = request.form.get('waste_type')
         quantity_str = request.form.get('quantity')
         unit = request.form.get('unit')
         disposal_method = request.form.get('disposal_method')
-        notes = request.form.get('notes')
+        notes = request.form.get('notes', '').strip() # Ensure notes is stripped, default to empty
 
-        # Basic Validation
+        error_occurred = False
+        entry_date = None
+        quantity = None
+
         if not date_str:
             flash('Date is required.', 'error')
-            return render_template('add_waste.html', form_data=form_data_for_template), 400
-        try:
-            entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
-            return render_template('add_waste.html', form_data=form_data_for_template), 400
+            error_occurred = True
+        else:
+            try:
+                entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
+                error_occurred = True
 
-        if not waste_type or len(waste_type.strip()) == 0:
-            flash('Waste Type is required.', 'error')
-            return render_template('add_waste.html', form_data=form_data_for_template), 400
+        if not waste_type: # Check if waste_type is empty
+            flash('Waste Type is required.', 'error') # Corrected flash message
+            error_occurred = True
 
         if not quantity_str:
             flash('Quantity is required.', 'error')
-            return render_template('add_waste.html', form_data=form_data_for_template), 400
-        try:
-            quantity = float(quantity_str)
-            if quantity <= 0:
-                flash('Quantity must be a positive number.', 'error')
-                return render_template('add_waste.html', form_data=form_data_for_template), 400
-        except ValueError:
-            flash('Quantity must be a valid number.', 'error')
-            return render_template('add_waste.html', form_data=form_data_for_template), 400
+            error_occurred = True
+        else:
+            try:
+                quantity = float(quantity_str)
+                if quantity <= 0:
+                    flash('Quantity must be a positive number.', 'error')
+                    error_occurred = True
+            except ValueError:
+                flash('Quantity must be a valid number.', 'error')
+                error_occurred = True
 
         if not unit or len(unit.strip()) == 0:
-            flash('Unit is required.', 'error')
+            flash('Unit is required.', 'error') # Corrected flash message
+            error_occurred = True
+
+        if not disposal_method: # Check if disposal_method is empty
+            flash('Disposal method is required.','error')
+            error_occurred = True
+
+        if error_occurred:
             return render_template('add_waste.html', form_data=form_data_for_template), 400
 
-        # If all validation passes:
         try:
             new_waste_entry = WasteEntry(
                 date=entry_date,
                 waste_type=waste_type.strip(),
                 quantity=quantity,
                 unit=unit.strip(),
-                disposal_method=disposal_method.strip() if disposal_method else None,
-                notes=notes.strip() if notes else None
+                disposal_method=disposal_method.strip(), # Ensure disposal_method is stripped
+                notes=notes if notes else None
             )
             db.session.add(new_waste_entry)
             db.session.commit()
             flash('Waste entry added successfully!', 'success')
-            # Redirect to view_waste when it exists, for now redirect to add_waste or index
             return redirect(url_for('view_waste'))
         except Exception as e:
             db.session.rollback()
@@ -362,11 +316,85 @@ def add_waste():
             flash('An error occurred while saving the waste entry. Please try again.', 'error')
             return render_template('add_waste.html', form_data=form_data_for_template), 500
 
-    # For GET request, render the form (form_data will be empty or None)
     return render_template('add_waste.html', form_data={})
+
+@app.route('/edit_waste/<int:id>', methods=['GET', 'POST'])
+def edit_waste(id):
+    waste_entry_to_edit = WasteEntry.query.get_or_404(id)
+
+    if request.method == 'POST':
+        form_data_for_template = request.form
+        date_str = request.form.get('date')
+        waste_type = request.form.get('waste_type')
+        quantity_str = request.form.get('quantity')
+        unit = request.form.get('unit')
+        disposal_method = request.form.get('disposal_method')
+        notes = request.form.get('notes', '').strip()
+
+        error_occurred = False
+        entry_date = None
+        quantity = None
+
+        if not date_str:
+            flash('Date is required.', 'error')
+            error_occurred = True
+        else:
+            try:
+                entry_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Invalid date format. Please use YYYY-MM-DD.', 'error')
+                error_occurred = True
+
+        if not waste_type: # Check if waste_type is empty
+            flash('Waste type is required.', 'error') # Corrected to match case in test
+            error_occurred = True
+
+        if not quantity_str:
+            flash('Quantity is required.', 'error')
+            error_occurred = True
+        else:
+            try:
+                quantity = float(quantity_str)
+                if quantity <= 0:
+                    flash('Quantity must be a positive number.', 'error')
+                    error_occurred = True
+            except ValueError:
+                flash('Quantity must be a valid number.', 'error')
+                error_occurred = True
+
+        if not unit or len(unit.strip()) == 0:
+            flash('Unit is required and cannot be empty.', 'error')
+            error_occurred = True
+
+        if not disposal_method: # Check if disposal_method is empty
+            flash('Disposal method is required.', 'error')
+            error_occurred = True
+
+        if error_occurred:
+            return render_template('edit_waste.html', entry=waste_entry_to_edit, form_data=form_data_for_template), 400
+
+        try:
+            waste_entry_to_edit.date = entry_date
+            waste_entry_to_edit.waste_type = waste_type.strip() # Ensure strip
+            waste_entry_to_edit.quantity = quantity
+            waste_entry_to_edit.unit = unit.strip()
+            waste_entry_to_edit.disposal_method = disposal_method.strip() # Ensure strip
+            waste_entry_to_edit.notes = notes if notes else None
+
+            db.session.commit()
+            flash('Waste entry updated successfully!', 'success')
+            return redirect(url_for('view_waste'))
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f"Database error when updating waste entry ID {id}: {e}")
+            flash('An error occurred while updating the waste entry. Please try again.', 'error')
+            return render_template('edit_waste.html', entry=waste_entry_to_edit, form_data=form_data_for_template), 500
+
+    return render_template('edit_waste.html', entry=waste_entry_to_edit, form_data=None)
+
 @app.route('/delete_waste/<int:id>', methods=['POST'])
 def delete_waste(id):
-    waste_entry_to_delete = WasteEntry.query.get_or_404(id) # Fetches or returns 404 if not found
+    waste_entry_to_delete = WasteEntry.query.get_or_404(id)
     try:
         db.session.delete(waste_entry_to_delete)
         db.session.commit()
@@ -376,9 +404,11 @@ def delete_waste(id):
         app.logger.error(f"Error deleting waste entry ID {id}: {e}")
         flash('An error occurred while deleting the waste entry. Please try again.', 'error')
     return redirect(url_for('view_waste'))
+
 @app.route('/charts')
 def charts():
     return render_template('charts.html')
+
 @app.route('/api/resource_chart_data')
 def resource_chart_data():
     try:
@@ -430,6 +460,7 @@ def resource_chart_data():
     except Exception as e:
         app.logger.error(f"Error generating chart data: {e}")
         return jsonify({'error': str(e), 'labels': [], 'datasets': []}), 500
+
 # --- CLI Commands ---
 @app.cli.command("init-db")
 def init_db_command():
@@ -438,5 +469,4 @@ def init_db_command():
     print(f"Database initialized and tables created at: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 if __name__ == '__main__':
-    app.run(debug=True)
     app.run(debug=True)

@@ -45,47 +45,52 @@
         {% endif %}
       {% endwith %}
 
-      {# 'waste_entry' is passed on GET, 'form_data' on POST validation error #}
-      <form method="POST" action="{{ url_for('edit_waste', id=waste_entry.id if waste_entry else form_data.id) }}">
+      {# 'entry' object is passed for pre-filling, 'form_data' for re-rendering on POST error #}
+      {# Corrected action to ensure form_data.id is used only if entry is None, which is unlikely here #}
+      {# The id for the action should always come from 'entry.id' as it's an edit form for an existing entry #}
+      <form method="POST" action="{{ url_for('edit_waste', id=entry.id) }}">
         <label for="date">Date:</label>
         <input type="date" id="date" name="date"
-               value="{{ form_data.get('date') if form_data else waste_entry.date.strftime('%Y-%m-%d') }}" required>
+               value="{{ form_data.get('date') if form_data else entry.date.strftime('%Y-%m-%d') }}" required>
 
         <label for="waste_type">Waste Type:</label>
-        <input list="waste_type_suggestions" id="waste_type" name="waste_type"
-               value="{{ form_data.get('waste_type') if form_data else waste_entry.waste_type }}" required>
-        <datalist id="waste_type_suggestions">
-            <option value="Spent Grain">
-            <option value="Glass">
-            <option value="Cardboard">
-            <option value="Plastics">
-            <option value="Organic Waste (trub, yeast)">
-            <option value="Chemicals (cleaning)">
-            <option value="Mixed General Waste">
-        </datalist>
+        <select id="waste_type" name="waste_type" required>
+          <option value="">-- Select Waste Type --</option>
+          {% set current_type = form_data.get('waste_type') if form_data else entry.waste_type %}
+          <option value="Spent Grain" {% if current_type == 'Spent Grain' %}selected{% endif %}>Spent Grain</option>
+          <option value="Glass" {% if current_type == 'Glass' %}selected{% endif %}>Glass</option>
+          <option value="Cardboard" {% if current_type == 'Cardboard' %}selected{% endif %}>Cardboard</option>
+          <option value="Plastics" {% if current_type == 'Plastics' %}selected{% endif %}>Plastics</option>
+          <option value="Organic (non-grain)" {% if current_type == 'Organic (non-grain)' %}selected{% endif %}>Organic (non-grain)</option>
+          <option value="Chemicals" {% if current_type == 'Chemicals' %}selected{% endif %}>Chemicals</option>
+          <option value="Wastewater Sludge" {% if current_type == 'Wastewater Sludge' %}selected{% endif %}>Wastewater Sludge</option>
+          <option value="Other" {% if current_type == 'Other' %}selected{% endif %}>Other</option>
+        </select>
 
         <label for="quantity">Quantity:</label>
         <input type="number" id="quantity" name="quantity" step="any"
-               value="{{ form_data.get('quantity') if form_data else waste_entry.quantity }}" required>
+               value="{{ form_data.get('quantity') if form_data else entry.quantity }}" required>
 
         <label for="unit">Unit:</label>
         <input type="text" id="unit" name="unit"
-               value="{{ form_data.get('unit') if form_data else waste_entry.unit }}" required placeholder="e.g., kg, lbs, items, liters">
+               value="{{ form_data.get('unit') if form_data else entry.unit }}" required placeholder="e.g., kg, lbs, bins, liters">
 
         <label for="disposal_method">Disposal Method:</label>
-        <input list="disposal_method_suggestions" id="disposal_method" name="disposal_method"
-               value="{{ form_data.get('disposal_method') if form_data else waste_entry.disposal_method }}">
-        <datalist id="disposal_method_suggestions">
-            <option value="Recycled">
-            <option value="Landfill">
-            <option value="Composted">
-            <option value="Repurposed (e.g., animal feed)">
-            <option value="Hazardous Waste Disposal">
-            <option value="Incinerated">
-        </datalist>
+        <select id="disposal_method" name="disposal_method" required>
+            <option value="">-- Select Disposal Method --</option>
+            {% set current_disposal = form_data.get('disposal_method') if form_data else entry.disposal_method %}
+            <option value="Recycled" {% if current_disposal == 'Recycled' %}selected{% endif %}>Recycled</option>
+            <option value="Composted" {% if current_disposal == 'Composted' %}selected{% endif %}>Composted</option>
+            <option value="Landfill" {% if current_disposal == 'Landfill' %}selected{% endif %}>Landfill</option>
+            <option value="Repurposed (e.g., animal feed)" {% if current_disposal == "Repurposed (e.g., animal feed)" %}selected{% endif %}>Repurposed (e.g., animal feed)</option>
+            <option value="Hazardous Waste Disposal" {% if current_disposal == 'Hazardous Waste Disposal' %}selected{% endif %}>Hazardous Waste Disposal</option>
+            <option value="Sold/Donated" {% if current_disposal == 'Sold/Donated' %}selected{% endif %}>Sold/Donated</option>
+            <option value="Incineration" {% if current_disposal == 'Incineration' %}selected{% endif %}>Incineration</option>
+            <option value="Other" {% if current_disposal == 'Other' %}selected{% endif %}>Other</option>
+        </select>
 
         <label for="notes">Notes (Optional):</label>
-        <textarea id="notes" name="notes">{{ form_data.get('notes') if form_data else (waste_entry.notes if waste_entry.notes else '') }}</textarea>
+        <textarea id="notes" name="notes">{{ form_data.get('notes') if form_data else (entry.notes if entry.notes else '') }}</textarea>
 
         <input type="submit" value="Update Waste Entry">
       </form>

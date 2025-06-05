@@ -98,6 +98,16 @@ The "View All Usage Data" page (`/view_resources`) now includes controls to filt
 A summary of any active filters and the current sort order is displayed above the data table for clarity.
 
 
+
+
+#### Enhancements to Waste Management (Edit/Delete)
+
+The Waste Management feature has been enhanced with capabilities to edit and delete existing entries:
+
+- **Edit Waste Entries**: On the "View Waste Entries" page, each entry now has an "Edit" button. Clicking this will take you to a form pre-filled with the entry's current data, where you can make modifications and save them.
+- **Delete Waste Entries**: Each entry on the "View Waste Entries" page also has a "Delete" button. Clicking this will prompt for confirmation (via a browser dialog), and if confirmed, will remove the entry from the database.
+
+These actions can be found in the "Actions" column on the waste entries viewing page (`/view_waste`).
 #### Basic Visualizations
 
 A new "View Usage Charts" page (`/charts`) has been added to provide basic visualizations of resource usage data.
